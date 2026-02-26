@@ -1,0 +1,9 @@
+{
+  "name": "epic-chronicler",
+  "description": "日常の記録を壮大な叙事詩として再構築します。メモ、日記、対話ログを運命と試練に満ちた英雄譚へと昇華させます。",
+  "version": "1.0.0",
+  "author": "User",
+  "tags": ["creative", "storytelling", "narrative", "epic"],
+  "promptFile": "prompt.md",
+  "userInvocable": true
+}
