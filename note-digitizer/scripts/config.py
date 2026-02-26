@@ -6,7 +6,17 @@ from pathlib import Path
 from dotenv import load_dotenv
 import os
 
-load_dotenv()
+# .envファイルの読み込み（複数候補から探索）
+_candidates = [
+    Path(r"C:\Users\north\development\note-digitizer\.env"),
+    Path(__file__).parent.parent / ".env",
+]
+for _env_path in _candidates:
+    if _env_path.exists():
+        load_dotenv(_env_path)
+        break
+else:
+    load_dotenv()  # カレントディレクトリの.envにフォールバック
 
 
 class Config:

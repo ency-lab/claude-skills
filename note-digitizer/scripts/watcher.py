@@ -7,14 +7,14 @@ from pathlib import Path
 from watchdog.events import FileSystemEventHandler
 from watchdog.observers import Observer
 
-from .analyzer import NoteAnalyzer
-from .config import Config
-from .discord_notify import DiscordNotifier
-from .markdown_writer import MarkdownWriter
+from analyzer import NoteAnalyzer
+from config import Config
+from discord_notify import DiscordNotifier
+from markdown_writer import MarkdownWriter
 
 logger = logging.getLogger(__name__)
 
-SUPPORTED_EXTENSIONS = {".jpg", ".jpeg", ".png", ".heic", ".webp"}
+SUPPORTED_EXTENSIONS = {".jpg", ".jpeg", ".png", ".heic", ".webp", ".pdf"}
 
 
 class NoteHandler(FileSystemEventHandler):

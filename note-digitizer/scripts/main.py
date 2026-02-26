@@ -5,11 +5,11 @@ import signal
 import sys
 import time
 
-from .analyzer import NoteAnalyzer
-from .config import Config
-from .discord_notify import DiscordNotifier
-from .markdown_writer import MarkdownWriter
-from .watcher import start_watching
+from analyzer import NoteAnalyzer
+from config import Config
+from discord_notify import DiscordNotifier
+from markdown_writer import MarkdownWriter
+from watcher import start_watching
 
 logging.basicConfig(
     level=logging.INFO,

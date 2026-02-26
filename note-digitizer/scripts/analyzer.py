@@ -4,10 +4,13 @@ import logging
 from datetime import datetime
 from pathlib import Path
 
-import google.generativeai as genai
+from google import genai
+from google.genai import types
 import PIL.Image
 
-from .config import Config
+PDF_EXTENSIONS = {".pdf"}
+
+from config import Config
 
 logger = logging.getLogger(__name__)
 
@@ -18,8 +21,8 @@ class NoteAnalyzer:
     """手書きノート画像をGemini Vision APIで解析し、Markdownを生成する"""
 
     def __init__(self, config: Config):
-        genai.configure(api_key=config.gemini_api_key)
-        self.model = genai.GenerativeModel(config.gemini_model)
+        self.client = genai.Client(api_key=config.gemini_api_key)
+        self.model_name = config.gemini_model
         self.prompt_template = self._load_prompt()
 
     def _load_prompt(self) -> str:
@@ -27,14 +30,26 @@ class NoteAnalyzer:
         return PROMPT_PATH.read_text(encoding="utf-8")
 
     def analyze(self, image_path: Path) -> str:
-        """画像を解析してMarkdown文字列を返す"""
+        """画像またはPDFを解析してMarkdown文字列を返す"""
         logger.info("解析開始: %s", image_path.name)
 
-        image = PIL.Image.open(image_path)
         today = datetime.now().strftime("%Y-%m-%d")
         prompt = self.prompt_template.replace("{date}", today)
 
-        response = self.model.generate_content([prompt, image])
+        if image_path.suffix.lower() in PDF_EXTENSIONS:
+            # PDFはバイトデータとして送信
+            pdf_bytes = image_path.read_bytes()
+            file_part = types.Part.from_bytes(data=pdf_bytes, mime_type="application/pdf")
+            contents = [prompt, file_part]
+        else:
+            # 画像はPILで読み込み
+            image = PIL.Image.open(image_path)
+            contents = [prompt, image]
+
+        response = self.client.models.generate_content(
+            model=self.model_name,
+            contents=contents,
+        )
         content = response.text
 
         # Geminiがコードブロックで囲んで返す場合の除去
