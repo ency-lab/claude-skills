@@ -34,6 +34,12 @@ class Config:
         self.obsidian_subfolder = os.getenv("OBSIDIAN_SUBFOLDER", "手書きノート")
         self.gemini_model = os.getenv("GEMINI_MODEL", "gemini-2.0-flash")
         self.debounce_seconds = int(os.getenv("DEBOUNCE_SECONDS", "3"))
+        self.processed_db_path = Path(
+            os.getenv(
+                "PROCESSED_DB_PATH",
+                str(Path(__file__).parent.parent / "data" / "processed_files.json"),
+            )
+        )
 
     @property
     def output_dir(self) -> Path:

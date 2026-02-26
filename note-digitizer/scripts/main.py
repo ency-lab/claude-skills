@@ -9,6 +9,7 @@ from analyzer import NoteAnalyzer
 from config import Config
 from discord_notify import DiscordNotifier
 from markdown_writer import MarkdownWriter
+from processed_tracker import ProcessedTracker
 from watcher import start_watching
 
 logging.basicConfig(
@@ -30,8 +31,9 @@ def main():
     analyzer = NoteAnalyzer(config)
     writer = MarkdownWriter(config)
     notifier = DiscordNotifier(config)
+    tracker = ProcessedTracker(config.processed_db_path)
 
-    observer = start_watching(config, analyzer, writer, notifier)
+    observer = start_watching(config, analyzer, writer, notifier, tracker)
 
     print()
     print(f"  監視フォルダ: {config.watch_folder}")
