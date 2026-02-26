@@ -1,0 +1,26 @@
+#!/bin/bash
+# post-commit: スキルを ~/.claude/skills/ に自動デプロイ
+
+SKILLS_DIR="$HOME/.claude/skills"
+REPO_DIR="$(git rev-parse --show-toplevel)"
+
+# skill-creator はデプロイ対象外
+EXCLUDE=("skill-creator")
+
+for dir in "$REPO_DIR"/*/; do
+  skill_name=$(basename "$dir")
+
+  # 除外リストをスキップ
+  for ex in "${EXCLUDE[@]}"; do
+    if [ "$skill_name" = "$ex" ]; then
+      continue 2
+    fi
+  done
+
+  # SKILL.md または skill.json があるフォルダのみ対象
+  if [ -f "$dir/SKILL.md" ] || [ -f "$dir/skill.json" ]; then
+    mkdir -p "$SKILLS_DIR/$skill_name"
+    cp -r "$dir"* "$SKILLS_DIR/$skill_name/"
+    echo "[deploy] $skill_name -> $SKILLS_DIR/$skill_name/"
+  fi
+done
