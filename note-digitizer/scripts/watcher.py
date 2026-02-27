@@ -1,6 +1,7 @@
 """watchdogによるフォルダ監視"""
 
 import logging
+import queue
 import threading
 from pathlib import Path
 
@@ -12,7 +13,7 @@ from analyzer import NoteAnalyzer
 from config import Config
 from discord_notify import DiscordNotifier
 from markdown_writer import MarkdownWriter
-from processed_tracker import ProcessedTracker
+from processed_tracker import ProcessedTracker, normalize_filename
 
 logger = logging.getLogger(__name__)
 
@@ -36,8 +37,14 @@ class NoteHandler(FileSystemEventHandler):
         self.notifier = notifier
         self.tracker = tracker
         self._timers: dict[str, threading.Timer] = {}
-        self._in_progress: set[str] = set()  # 現在処理中のファイルパス
+        self._queued: set[str] = set()  # 正規化キーで二重エンキューを防止
         self._lock = threading.Lock()
+        self._queue: queue.Queue = queue.Queue()
+        # 単一ワーカースレッド（daemon=True でメイン終了時に自動停止）
+        self._worker = threading.Thread(
+            target=self._worker_loop, daemon=True, name="note-worker"
+        )
+        self._worker.start()
 
     def on_created(self, event):
         if event.is_directory:
@@ -56,36 +63,79 @@ class NoteHandler(FileSystemEventHandler):
         self._schedule(path)
 
     def _schedule(self, path: Path):
-        """デバウンス処理: ファイル書き込み完了を待ってから処理を開始する"""
+        """デバウンス処理: ファイル書き込み完了を待ってから _enqueue を呼ぶ"""
         key = str(path)
         with self._lock:
             if key in self._timers:
                 self._timers[key].cancel()
             timer = threading.Timer(
-                self.config.debounce_seconds, self._process, args=[path]
+                self.config.debounce_seconds, self._enqueue, args=[path]
             )
             self._timers[key] = timer
             timer.start()
             logger.debug("スケジュール登録: %s (%d秒後)", path.name, self.config.debounce_seconds)
 
-    def _process(self, image_path: Path):
-        """画像解析→Markdown保存→Discord通知のパイプラインを実行する"""
+    def _enqueue(self, path: Path):
+        """デバウンス完了後に呼ばれる。正規化キーで重複チェックしてキューに積む。"""
         with self._lock:
-            self._timers.pop(str(image_path), None)
+            self._timers.pop(str(path), None)
 
-        if not image_path.exists():
-            logger.warning("ファイルが見つかりません: %s", image_path)
+        if not path.exists():
+            logger.warning("ファイルが見つかりません（エンキュー時）: %s", path.name)
             return
 
-        key = str(image_path)
+        norm_key = normalize_filename(path.name)
+
         with self._lock:
-            if key in self._in_progress:
-                logger.info("スキップ（処理中）: %s", image_path.name)
+            if norm_key in self._queued:
+                logger.info(
+                    "スキップ（キュー登録済み）: %s -> %s", path.name, norm_key
+                )
                 return
-            if self.tracker.is_processed(image_path):
-                logger.info("スキップ（処理済み）: %s", image_path.name)
+            if self.tracker.is_processed(path):
+                logger.info("スキップ（処理済み）: %s", path.name)
                 return
-            self._in_progress.add(key)
+            self._queued.add(norm_key)
+
+        logger.info("キューに追加: %s (キー: %s)", path.name, norm_key)
+        self._queue.put(path)
+
+    def _worker_loop(self):
+        """単一ワーカー。キューから1件ずつ取り出して逐次処理する。"""
+        logger.debug("ワーカースレッド開始")
+        while True:
+            try:
+                path = self._queue.get(timeout=1)
+            except queue.Empty:
+                continue
+            if path is None:  # シャットダウンシグナル
+                logger.debug("ワーカースレッド終了シグナルを受信")
+                self._queue.task_done()
+                break
+            try:
+                self._process(path)
+            finally:
+                self._queue.task_done()
+        logger.debug("ワーカースレッド終了")
+
+    def _process(self, image_path: Path):
+        """ワーカースレッドから逐次呼ばれる。並行処理なし。"""
+        norm_key = normalize_filename(image_path.name)
+
+        # 最終防御チェック（エンキュー後にファイル消失 or 別バリアントが先処理された場合）
+        if not image_path.exists():
+            logger.warning("ファイルが見つかりません（処理開始時）: %s", image_path.name)
+            with self._lock:
+                self._queued.discard(norm_key)
+            return
+
+        if self.tracker.is_processed(image_path):
+            logger.info(
+                "スキップ（処理済み、処理開始時確認）: %s", image_path.name
+            )
+            with self._lock:
+                self._queued.discard(norm_key)
+            return
 
         try:
             logger.info("=== パイプライン開始: %s ===", image_path.name)
@@ -93,12 +143,17 @@ class NoteHandler(FileSystemEventHandler):
             output_path = self.writer.write(content, image_path.name)
             self.notifier.notify(content, output_path)
             self.tracker.mark_processed(image_path)
-            logger.info("=== パイプライン完了: %s → %s ===", image_path.name, output_path.name)
+            logger.info(
+                "=== パイプライン完了: %s -> %s ===",
+                image_path.name,
+                output_path.name,
+            )
         except Exception:
             logger.exception("パイプライン処理中にエラーが発生しました: %s", image_path.name)
         finally:
+            # エラー時もリセット → 次回同ファイルの再試行が可能
             with self._lock:
-                self._in_progress.discard(key)
+                self._queued.discard(norm_key)
 
 
 def _is_virtual_drive(path: str) -> bool:
