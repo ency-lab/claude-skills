@@ -8,7 +8,7 @@ import os
 
 # .envファイルの読み込み（複数候補から探索）
 _candidates = [
-    Path(r"C:\Users\north\development\note-digitizer\.env"),
+    Path(r"C:\Users\north\development\claude-skills\note-digitizer\.env"),
     Path(__file__).parent.parent / ".env",
 ]
 for _env_path in _candidates:

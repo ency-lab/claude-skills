@@ -6,6 +6,7 @@ from pathlib import Path
 
 from watchdog.events import FileSystemEventHandler
 from watchdog.observers import Observer
+from watchdog.observers.polling import PollingObserver
 
 from analyzer import NoteAnalyzer
 from config import Config
@@ -100,6 +101,20 @@ class NoteHandler(FileSystemEventHandler):
                 self._in_progress.discard(key)
 
 
+def _is_virtual_drive(path: str) -> bool:
+    """パスが仮想ドライブ（Google DriveFS等）上かどうかを判定する"""
+    import ctypes
+    import os
+    drive = os.path.splitdrive(path)[0]
+    if not drive:
+        return False
+    drive_type = ctypes.windll.kernel32.GetDriveTypeW(drive + "\\")
+    # DRIVE_REMOTE=4, DRIVE_NO_ROOT_DIR=1, DRIVE_UNKNOWN=0
+    # Google DriveFSは通常DRIVE_REMOTE(4)またはDRIVE_FIXED(3)として見える
+    # C:ドライブ(DRIVE_FIXED=3)以外はポーリングを使用する安全策
+    return drive.upper() != "C:"
+
+
 def start_watching(
     config: Config,
     analyzer: NoteAnalyzer,
@@ -109,8 +124,16 @@ def start_watching(
 ) -> Observer:
     """フォルダ監視を開始してObserverインスタンスを返す"""
     handler = NoteHandler(config, analyzer, writer, notifier, tracker)
-    observer = Observer()
-    observer.schedule(handler, str(config.watch_folder), recursive=False)
+    # Google DriveFS等の仮想ファイルシステムではReadDirectoryChangesWが
+    # イベントを発火しないため、PollingObserverを使用する
+    watch_path = str(config.watch_folder)
+    use_polling = _is_virtual_drive(watch_path)
+    if use_polling:
+        observer = PollingObserver(timeout=config.debounce_seconds)
+        logger.info("PollingObserver使用（仮想ドライブ検出）: %s", watch_path)
+    else:
+        observer = Observer()
+    observer.schedule(handler, watch_path, recursive=False)
     observer.start()
     logger.info("フォルダ監視を開始しました: %s", config.watch_folder)
     return observer
