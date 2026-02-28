@@ -6,15 +6,10 @@ from pathlib import Path
 from dotenv import load_dotenv
 import os
 
-# .envファイルの読み込み（複数候補から探索）
-_candidates = [
-    Path(r"C:\Users\north\development\claude-skills\note-digitizer\.env"),
-    Path(__file__).parent.parent / ".env",
-]
-for _env_path in _candidates:
-    if _env_path.exists():
-        load_dotenv(_env_path)
-        break
+# .envファイルの読み込み（プロジェクトルートから相対パスで探索）
+_env_path = Path(__file__).parent.parent / ".env"
+if _env_path.exists():
+    load_dotenv(_env_path)
 else:
     load_dotenv()  # カレントディレクトリの.envにフォールバック
 
@@ -29,7 +24,10 @@ class Config:
         self.discord_webhook_url = os.getenv("NOTE_DISCORD_WEBHOOK_URL", "")
         self.watch_folder = Path(os.getenv("WATCH_FOLDER", ""))
         self.obsidian_vault_path = Path(
-            os.getenv("OBSIDIAN_VAULT_PATH", r"C:\Users\north\Documents\Obsidian Vault")
+            os.getenv(
+                "OBSIDIAN_VAULT_PATH",
+                str(Path.home() / "Documents" / "Obsidian Vault"),
+            )
         )
         self.obsidian_subfolder = os.getenv("OBSIDIAN_SUBFOLDER", "手書きノート")
         self.gemini_model = os.getenv("GEMINI_MODEL", "gemini-2.0-flash")

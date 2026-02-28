@@ -27,7 +27,7 @@ pip install -r requirements.txt
 | `GEMINI_API_KEY` | Yes | Gemini APIキー |
 | `NOTE_DISCORD_WEBHOOK_URL` | Yes | Discord Webhook URL |
 | `WATCH_FOLDER` | Yes | 監視対象フォルダ（Google Drive同期先） |
-| `OBSIDIAN_VAULT_PATH` | No | Obsidian Vaultパス（デフォルト: `C:\Users\north\Documents\Obsidian Vault`） |
+| `OBSIDIAN_VAULT_PATH` | No | Obsidian Vaultパス（デフォルト: `%USERPROFILE%\Documents\Obsidian Vault`） |
 | `OBSIDIAN_SUBFOLDER` | No | Vault内サブフォルダ名（デフォルト: `手書きノート`） |
 | `GEMINI_MODEL` | No | 使用モデル（デフォルト: `gemini-2.0-flash`） |
 | `DEBOUNCE_SECONDS` | No | ファイル検出後の待機秒数（デフォルト: `3`） |
@@ -37,7 +37,8 @@ pip install -r requirements.txt
 ### パイプラインの起動
 
 ```bash
-python -m note-digitizer.scripts.main
+cd C:\development\claude-skills\note-digitizer
+python -m scripts
 ```
 
 監視フォルダに `.jpg`, `.jpeg`, `.png`, `.heic`, `.webp` の画像を配置すると、自動で解析・保存・通知が実行される。
@@ -45,6 +46,15 @@ python -m note-digitizer.scripts.main
 ### 停止
 
 `Ctrl+C` で安全に停止する。
+
+### 自動起動（Windowsログイン時）
+
+Windowsタスクスケジューラに `NoteDigitizer` タスクが登録されている場合、ログイン時に自動でwatcherが起動する。
+
+- **ランチャー**: `start.bat`（プロジェクトルートに配置）
+- **ログ**: `logs\note-digitizer.log`（起動時刻・処理ログを追記記録）
+- **手動テスト**: `schtasks /Run /TN "NoteDigitizer"`
+- **停止**: タスクマネージャーでPythonプロセスを終了するか、`schtasks /End /TN "NoteDigitizer"`
 
 ## 4色ペンシステム
 
