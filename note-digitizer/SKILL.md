@@ -32,7 +32,50 @@ pip install -r requirements.txt
 | `GEMINI_MODEL` | No | 使用モデル（デフォルト: `gemini-2.0-flash`） |
 | `DEBOUNCE_SECONDS` | No | ファイル検出後の待機秒数（デフォルト: `3`） |
 
-## 使い方
+## 起動タイミング
+
+- ユーザーが `/note-digitizer` を実行したとき
+- ユーザーが「note-digitizerを起動して」「パイプラインの状態を確認して」「監視を止めて」等と依頼したとき
+- Windowsタスクスケジューラによりログイン時に自動起動される（`start.bat` 経由、Claudeは関与しない）
+
+## 実行手順
+
+### 起動を依頼された場合
+
+1. タスクスケジューラ経由での起動を試みる（推奨）
+   ```bash
+   schtasks /Run /TN "NoteDigitizer"
+   ```
+2. タスクが登録されていない場合は直接実行する
+   ```bash
+   cd C:\development\claude-skills\note-digitizer && python -m scripts
+   ```
+3. ログで起動確認する
+   - ログパス: `C:\development\claude-skills\note-digitizer\logs\note-digitizer.log`
+4. 起動状況をユーザーに報告する
+
+### 停止を依頼された場合
+
+1. タスクスケジューラ経由で停止する
+   ```bash
+   schtasks /End /TN "NoteDigitizer"
+   ```
+2. 停止確認後、ユーザーに報告する
+
+### 状態確認を依頼された場合
+
+1. ログファイルの最新エントリを確認する
+   - ログパス: `C:\development\claude-skills\note-digitizer\logs\note-digitizer.log`
+2. 状態をユーザーに報告する
+
+### トラブルシューティングを依頼された場合
+
+1. ログファイルを確認してエラー内容を特定する
+2. 本ドキュメントの「トラブルシューティング」セクションを参照して対処する
+3. 必要に応じて `.env` ファイルの設定を確認する
+4. 対処内容と結果をユーザーに報告する
+
+## 使い方（参考）
 
 ### パイプラインの起動
 
