@@ -16,7 +16,7 @@ description: このスキルは、セッション終了時やユーザーが記�
 
 ## 出力先
 
-`C:\Users\keft-\development\session-logs\` ディレクトリに保存する。
+`C:\development\session-logs\` ディレクトリに保存する。
 ディレクトリが存在しない場合は、親ディレクトリも含めて再帰的に作成する（`mkdir -p` 相当）。
 
 ## ファイル名
